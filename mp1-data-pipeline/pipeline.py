@@ -16,22 +16,24 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-
 def setup_logging(verbose=False):
     """Configure logging for the pipeline."""
+    if verbose == False:
+        lvl=logging.INFO
+    else:
+        lvl=logging.DEBUG
     logging.basicConfig(
-    level=logging.INFO,
+    level=lvl,
     format="%(asctime)s %(levelname)-8s %(message)s",
     datefmt="%H:%M:%S"
     )
-
 
 def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Analyze a data file"
     )
-
+    
     parser.add_argument(
         "--input", "-i",
         required=True,
@@ -52,24 +54,33 @@ def parse_arguments():
 
     parser.add_argument(
         "--verbose", "-v",
+        action="store_true",
         required=False,
         help="Enable verbose logging"
     )
-    
-    args = parser.parse_args()
 
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
+    return parser
 
 
 def validate_input(filepath):
     """Check whether the input path exists and is a file."""
-    pass  # TODO: implement
+    if Path(filepath).is_file():
+        logger.info(f"Input file validated: {filepath}")
+    else:
+        logger.error(f"Input file not found: {filepath}")
+        sys.exit(1)
+
 
 def main():
     """Main pipeline function."""
-    pass  # TODO: implement
 
+    args = parse_arguments().parse_args()
+
+    setup_logging(args.verbose)
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Arguments parsed: input={args.input}, \noutput={args.output}, format={args.format}")
+
+    validate_input(args.input)
 
 if __name__ == "__main__":
     main()
