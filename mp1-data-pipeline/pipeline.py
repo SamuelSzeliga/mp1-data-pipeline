@@ -13,6 +13,7 @@ import logging
 import sys
 from pathlib import Path
 from data_loaders import load_data
+from data_processor import process_data, create_cleaning_report
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,9 @@ def setup_logging(verbose=False):
         lvl=logging.DEBUG
     logging.basicConfig(
     level=lvl,
-    format="%(asctime)s %(levelname)-8s %(message)s",
-    datefmt="%H:%M:%S"
+    format="%(asctime)s %(levelname)-8s %(name)s — %(message)s"
     )
+
 
 def parse_arguments():
     """Parse command-line arguments."""
@@ -47,10 +48,10 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        "--format",
-        required=False,
-        help="Output format: csv or json; default is csv"
-    )
+            "--config",
+            required=True,
+            help="Path to config file"
+        )
 
     parser.add_argument(
         "--verbose", "-v",
@@ -78,15 +79,26 @@ def main():
 
     setup_logging(args.verbose)
     logger = logging.getLogger(__name__)
-    logger.debug(f"Arguments parsed: input={args.input}, \noutput={args.output}, format={args.format}")
+    logger.debug(f"Arguments parsed: input={args.input}, output={args.output}, config={args.config}")
 
     validate_input(args.input)
+    validate_input(args.config)
 
     try:
-        data = load_data(args.input)
+        df_before = load_data(args.input)
+        config = load_data(args.config)
     except ValueError:
         sys.exit(1)
-            
+
+    try:
+        df_after = (process_data(df_before, config))
+        print(create_cleaning_report(df_before, df_after))
+        logger.info(f"Processing complete: {len(df_before)} -> {len(df_after)} rows")
+        df_after.to_csv(args.output, index=False)
+        logger.info(f"Saved cleaned data to {args.output}")
+    except ValueError:
+        sys.exit(1)
+                
 
 if __name__ == "__main__":
     main()
