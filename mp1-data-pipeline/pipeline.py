@@ -12,21 +12,17 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from data_loaders import load_data
-from data_processor import process_data, create_cleaning_report
+from src._init_ import (
+    create_cleaning_report,
+    load_data,
+    process_data,
+    save_data,
+    setup_logging,
+    validate_dataframe,
+    validate_input,
+)
 
 logger = logging.getLogger(__name__)
-
-def setup_logging(verbose=False):
-    """Configure logging for the pipeline."""
-    if verbose == False:
-        lvl=logging.INFO
-    else:
-        lvl=logging.DEBUG
-    logging.basicConfig(
-    level=lvl,
-    format="%(asctime)s %(levelname)-8s %(name)s — %(message)s"
-    )
 
 
 def parse_arguments():
@@ -48,10 +44,10 @@ def parse_arguments():
     )
 
     parser.add_argument(
-            "--config",
-            required=True,
-            help="Path to config file"
-        )
+        "--config",
+        required=True,
+        help="Path to config file"
+    )
 
     parser.add_argument(
         "--verbose", "-v",
@@ -61,15 +57,6 @@ def parse_arguments():
     )
 
     return parser
-
-
-def validate_input(filepath):
-    """Check whether the input path exists and is a file."""
-    if Path(filepath).is_file():
-        logger.info(f"Input file validated: {filepath}")
-    else:
-        logger.error(f"Input file not found: {filepath}")
-        sys.exit(1)
 
 
 def main():
@@ -91,13 +78,23 @@ def main():
         sys.exit(1)
 
     try:
-        df_after = (process_data(df_before, config))
-        print(create_cleaning_report(df_before, df_after))
-        logger.info(f"Processing complete: {len(df_before)} -> {len(df_after)} rows")
-        df_after.to_csv(args.output, index=False)
+        required_columns = config["processing"]["validation"].get("required_columns", [])
+        numeric_columns = config["processing"]["validation"].get("numeric_columns", [])
+        validated_df = validate_dataframe(df_before, required_columns, numeric_columns)
+        logger.info(f"Validation: {len(df_before)} rows before, {len(validated_df)} rows after")
+    except ValueError:
+        sys.exit(1)
+
+    try:
+        df_after = (process_data(validated_df, config))
+        logger.info(f"Processing complete: {len(validated_df)} -> {len(df_after)} rows")
+
+        save_data(df_after, args.output)
         logger.info(f"Saved cleaned data to {args.output}")
     except ValueError:
         sys.exit(1)
+
+    print(create_cleaning_report(validated_df, df_after))
                 
 
 if __name__ == "__main__":

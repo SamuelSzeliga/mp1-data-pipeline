@@ -18,15 +18,14 @@ def handle_missing(df, axis="rows"):
     before_df = df.copy()
     if axis == "rows":
         df = df.dropna()
-        logger.debug(f"{len(before_df)} -> {len(df)} rows")
+        logger.debug(f"Handle missing: {len(before_df)} -> {len(df)} rows")
     elif axis == "columns":
         df = df.dropna(axis=1)
-        logger.debug(f"{len(before_df)} -> {len(df)} columns")
+        logger.debug(f"Handle missing: {len(before_df)} -> {len(df)} columns")
     else:
         logger.error(f"{axis} is unsupported")
         raise ValueError(f"{axis} is unsupported")
 
-    #logger.debug(f"{len(before_df)} -> {len(df)} rows")
     return df
 
 
@@ -44,12 +43,13 @@ def remove_outliers(df, columns, method, threshold):
             cleaned_columns.append(col)
 
     if method == "iqr":
-        q1 = df[cleaned_columns].quantile(0.25)
-        q3 = df[cleaned_columns].quantile(0.75)
-        iqr = q3 - q1
-        lower = q1 - 1.5 * iqr
-        upper = q3 + 1.5 * iqr
-        df = df[(df[cleaned_columns] >= lower) & (df[cleaned_columns] <= upper)]
+        for col in cleaned_columns:
+            q1 = df[cleaned_columns].quantile(0.25)
+            q3 = df[cleaned_columns].quantile(0.75)
+            iqr = q3 - q1
+            lower = q1 - threshold * iqr
+            upper = q3 + threshold * iqr
+            df = df[((df[cleaned_columns] >= lower) & (df[cleaned_columns] <= upper)).all(axis=1)]
         logger.debug(f"Method: {method}, Threshold: {threshold}, Number of rows removed: {len(before) - len(df)}")
 
     elif method == "zscore":
@@ -78,7 +78,7 @@ def process_data(df, config):
         df = handle_missing(df, axis = axis)
 
     if config["processing"].get("missing", {}).get("enabled", True):
-        columns = config["processing"]["outliers"].get("columns", [])
+        columns = config["processing"]["outliers"].get("score", [])
         method = config["processing"]["outliers"].get("method", ())
         threshold = config["processing"]["outliers"].get("threshold", ())
         df = remove_outliers(df, columns=columns, method=method, threshold=threshold)
